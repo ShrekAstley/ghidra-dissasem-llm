@@ -85,6 +85,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/tools.md](docs/tools.
 | Slow answers / timeouts | Raise *Request timeout*; use a smaller or quantized model; lower tool-call limit. |
 | "Decompiler failed" in results | Ensure the function is analyzed; the assistant falls back to assembly. |
 | Build fails with `Unsupported class file major version 70` (or 65+ numbers like 68/69) | Gradle is running on a JDK newer than it supports (70 = Java 26; Gradle 8.14 supports up to ~Java 24). The repo pins Gradle's daemon to **JDK 21** (`gradle/gradle-daemon-jvm.properties`; it is auto-downloaded if missing), so pull the latest and rebuild. If it still fails, set `export JAVA_HOME=/path/to/jdk-21` (Windows: `set JAVA_HOME=C:\path\to\jdk-21`), confirm with `./gradlew --version`, then rebuild. Ghidra 12 itself requires JDK 21+. |
+| `gradlew test` crashes with `Process 'Gradle Test Executor' finished with non-zero exit value` | Build the extension without tests (`gradlew buildExtension -x test`), then run `gradlew test --tests *GhidraEnvironmentTest -i` and look for `GHIDRA INIT FAILED` / `System.exit(...)` stack traces, or a `build/hs_err_pid*.log` file, and report them. |
 | Extension not listed in Configure | Rebuild against your exact Ghidra version and reinstall; check `application.log`. |
 | Proposal can't be applied | Read the red/⚠ lines in its detail pane (stale, name conflict, would overwrite…). |
 

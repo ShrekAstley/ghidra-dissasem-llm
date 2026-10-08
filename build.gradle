@@ -57,8 +57,12 @@ test {
 	useJUnitPlatform()
 	// Integration tests boot a headless Ghidra application from this directory.
 	systemProperty 'ghidra.install.dir', ghidraInstallDir
-	jvmArgs '-Djava.awt.headless=true', '-Xmx1g'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx2g', '-Djava.security.manager=allow',
+		"-XX:ErrorFile=${projectDir}/build/hs_err_pid%p.log"
+	// Fork a fresh JVM per test class so a native/JVM crash in one class cannot hide the others.
+	forkEvery = 1
 	testLogging {
+		showStandardStreams = true
 		events 'passed', 'skipped', 'failed'
 		exceptionFormat 'full'
 	}

@@ -45,9 +45,46 @@ public final class TestPrograms {
 		}
 		if (!Application.isInitialized()) {
 			System.setProperty("ghidra.install.dir", dir);
-			Application.initializeApplication(new GhidraApplicationLayout(), new HeadlessGhidraApplicationConfiguration());
+			trapExit();
+			try {
+				Application.initializeApplication(new GhidraApplicationLayout(), new HeadlessGhidraApplicationConfiguration());
+			}
+			catch (Throwable t) {
+				System.err.println("GHIDRA INIT FAILED. java=" + System.getProperty("java.version") + " os=" + System.getProperty("os.name") +
+					" ghidra.install.dir=" + dir + " cwd=" + System.getProperty("user.dir"));
+				t.printStackTrace();
+				throw new IllegalStateException("Could not initialize headless Ghidra from '" + dir + "': " + t, t);
+			}
 		}
 		initialized = true;
+	}
+
+	/** Turns a surprise System.exit() inside Ghidra into a visible exception with a stack trace. */
+	@SuppressWarnings({ "removal", "deprecation" })
+	private static void trapExit() {
+		try {
+			System.setSecurityManager(new SecurityManager() {
+				@Override
+				public void checkPermission(java.security.Permission perm) {
+					// allow everything else
+				}
+
+				@Override
+				public void checkPermission(java.security.Permission perm, Object context) {
+					// allow everything else
+				}
+
+				@Override
+				public void checkExit(int status) {
+					IllegalStateException e = new IllegalStateException("System.exit(" + status + ") was called");
+					e.printStackTrace();
+					throw e;
+				}
+			});
+		}
+		catch (UnsupportedOperationException | SecurityException e) {
+			// not allowed on this JVM; diagnostics simply unavailable
+		}
 	}
 
 	public static final long TEXT = 0x401000L, STR = 0x402000L, GLOB = 0x403000L;
