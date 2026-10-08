@@ -18,12 +18,22 @@ else if (project.hasProperty("GHIDRA_INSTALL_DIR")) {
 }
 
 if (ghidraInstallDir) {
-	apply from: new File(ghidraInstallDir).getCanonicalPath() + "/support/buildExtension.gradle"
+	// Tolerate quotes/whitespace/angle brackets pasted into the value, then validate it.
+	ghidraInstallDir = ghidraInstallDir.toString().trim().replaceAll('^["\'<]+|["\'>]+$', '').trim()
+	def installDir = new File(ghidraInstallDir)
+	def buildScript = new File(installDir, "support/buildExtension.gradle")
+	if (!installDir.isDirectory() || !buildScript.isFile()) {
+		throw new GradleException("""GHIDRA_INSTALL_DIR does not point at a Ghidra installation.
+  value received : [${ghidraInstallDir}]
+  expected       : a folder that contains support/buildExtension.gradle (the folder with ghidraRun / ghidraRun.bat)
+  Tips: use the real path of your unzipped Ghidra (not the example text); no quotes needed inside the value; avoid '<' '>'.""")
+	}
+	apply from: buildScript.getCanonicalPath()
 }
 else {
 	throw new GradleException("""GHIDRA_INSTALL_DIR is not defined. Point it at your Ghidra folder (the one containing ghidraRun and support/), using any ONE of:
   PowerShell : \$env:GHIDRA_INSTALL_DIR = "C:\\path\\to\\ghidra_12.0.1_PUBLIC"
-  cmd        : set GHIDRA_INSTALL_DIR=C:\\path\\to\\ghidra_12.0.1_PUBLIC
+  cmd        : set GHIDRA_INSTALL_DIR=C:\\path\\to\\ghidra_12.0.1_PUBLIC     (no quotes)
   Linux/macOS: export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC
   one-off    : gradlew buildExtension -PGHIDRA_INSTALL_DIR=<path>
   permanent  : add GHIDRA_INSTALL_DIR=<path with forward slashes> to <your user home>/.gradle/gradle.properties""")
