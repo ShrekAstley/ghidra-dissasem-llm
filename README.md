@@ -84,6 +84,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/tools.md](docs/tools.
 | Model ignores tools / malformed tool calls | Set *Tool protocol* to `PROMPTED` (or try a model with tool support). |
 | Slow answers / timeouts | Raise *Request timeout*; use a smaller or quantized model; lower tool-call limit. |
 | "Decompiler failed" in results | Ensure the function is analyzed; the assistant falls back to assembly. |
+| Build fails with `Unsupported class file major version 70` (or 65+ numbers like 68/69) | Gradle is running on a JDK newer than it supports (70 = Java 26; Gradle 8.14 supports up to ~Java 24). Build with **JDK 21**: `export JAVA_HOME=/path/to/jdk-21` (Windows: `set JAVA_HOME=C:\path\to\jdk-21`), confirm with `./gradlew --version`, then rebuild. Ghidra 12 itself requires JDK 21+. |
 | Extension not listed in Configure | Rebuild against your exact Ghidra version and reinstall; check `application.log`. |
 | Proposal can't be applied | Read the red/⚠ lines in its detail pane (stale, name conflict, would overwrite…). |
 

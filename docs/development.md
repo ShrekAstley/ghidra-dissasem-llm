@@ -8,7 +8,7 @@ You do not need to know Java or Ghidra internals to build and install the extens
 | | |
 |---|---|
 | Ghidra | 12.0.x (built and verified against **12.0.1 PUBLIC**) |
-| JDK | 21 (Ghidra 12 requires it) |
+| JDK | **21** (Ghidra 12 needs 21+; the bundled Gradle 8.14 cannot run on JDK 25+, so use 21 for the build) |
 | Gradle | 8.5+ — the included wrapper (`./gradlew`) downloads 8.14.3 |
 | Network | Only for fetching Gradle/Maven dependencies at build time (JUnit, `sqlite-jdbc`). The extension itself never uses the network except `localhost`. |
 
@@ -16,6 +16,8 @@ Other Ghidra versions: set `GHIDRA_INSTALL_DIR` to that install and rebuild; the
 versioned for the Ghidra it was built against (Ghidra refuses to install extensions built for another version).
 
 ## Build
+
+Check which JDK Gradle will use first: `./gradlew --version` (look at the *JVM* line). If it is not 21, set `JAVA_HOME` to a JDK 21 install. Running on a newer JDK fails immediately with `Unsupported class file major version NN` (70 = Java 26).
 
 ```bash
 export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC     # Windows: set GHIDRA_INSTALL_DIR=C:\ghidra...
