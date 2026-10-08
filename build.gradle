@@ -1,0 +1,50 @@
+/* Ghidra Local LLM RE Assistant - extension build.
+ *
+ * Usage:
+ *   export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC
+ *   ./gradlew test buildExtension        # (or `gradle ...`)
+ *
+ * The extension ZIP is written to dist/.
+ */
+
+//----------------------START "DO NOT MODIFY" SECTION------------------------------
+def ghidraInstallDir
+
+if (System.env.GHIDRA_INSTALL_DIR) {
+	ghidraInstallDir = System.env.GHIDRA_INSTALL_DIR
+}
+else if (project.hasProperty("GHIDRA_INSTALL_DIR")) {
+	ghidraInstallDir = project.getProperty("GHIDRA_INSTALL_DIR")
+}
+
+if (ghidraInstallDir) {
+	apply from: new File(ghidraInstallDir).getCanonicalPath() + "/support/buildExtension.gradle"
+}
+else {
+	throw new GradleException("GHIDRA_INSTALL_DIR is not defined! Set the environment variable or pass -PGHIDRA_INSTALL_DIR=<path>")
+}
+//----------------------END "DO NOT MODIFY" SECTION-------------------------------
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Bundled into the extension's lib/ directory by Ghidra's copyDependencies task.
+	// (Gson and the Ghidra APIs are provided by Ghidra itself.)
+	implementation 'org.xerial:sqlite-jdbc:3.46.1.3'
+
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.3'
+}
+
+test {
+	useJUnitPlatform()
+	// Integration tests boot a headless Ghidra application from this directory.
+	systemProperty 'ghidra.install.dir', ghidraInstallDir
+	jvmArgs '-Djava.awt.headless=true', '-Xmx1g'
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		exceptionFormat 'full'
+	}
+}
