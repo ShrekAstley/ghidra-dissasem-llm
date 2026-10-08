@@ -149,10 +149,28 @@ public class AssistantService implements AutoCloseable {
 		settingsStore.save(s);
 		settings = s;
 		rebuildTools();
+		loop.resetModelCache();
 		if (knowledgeChanged) {
 			openKnowledge();
 		}
 		log.info("Settings updated (endpoint " + s.endpoint + ", model '" + s.model + "', tool mode " + s.toolMode + ")");
+	}
+
+	/** Applies settings in memory only (used by "Test Connection" before the user saves). */
+	public void applyTransient(Settings s) {
+		s.normalize();
+		settings = s;
+		rebuildTools();
+		loop.resetModelCache();
+	}
+
+	/** Runs one read-only inspection tool directly (expert "raw output" views); no model involved. */
+	public String runReadOnlyTool(String name, String json) {
+		var tool = registry.find(name);
+		if (tool.isEmpty() || tool.get().definition().permission() != ToolPermission.READ_PROGRAM) {
+			return "ERROR: not a read-only inspection tool: " + name;
+		}
+		return registry.execute(name, json, toolContext(new CancellationToken())).text();
 	}
 
 	// ---- connection ---------------------------------------------------------------------------

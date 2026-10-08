@@ -14,6 +14,11 @@ public class ArchitectureReport {
 		public String confidence = "POSSIBLE";
 		public List<String> functions = new ArrayList<>();
 		public List<Node> children = new ArrayList<>();
+
+		@Override
+		public String toString() {
+			return name.isBlank() ? "(unnamed)" : name + (confidence.isBlank() ? "" : "  [" + confidence + "]");
+		}
 	}
 
 	public final Node root = new Node();

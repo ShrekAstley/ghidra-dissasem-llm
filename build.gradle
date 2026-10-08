@@ -48,3 +48,21 @@ test {
 		exceptionFormat 'full'
 	}
 }
+
+// Developer preview: renders the real panel against a mock LM Studio (needs a display, e.g. xvfb-run).
+tasks.register('previewPanel', JavaExec) {
+	group = 'verification'
+	description = 'Renders UI screenshots to build/preview'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'ghidrallm.ui.PanelPreview'
+	systemProperty 'ghidra.install.dir', ghidraInstallDir
+	args 'build/preview'
+}
+
+buildExtension {
+	exclude 'gradle.properties'
+	exclude 'gradle/**'
+	exclude 'docs/**'
+	exclude 'examples/**'
+	exclude 'tests/**'
+}
