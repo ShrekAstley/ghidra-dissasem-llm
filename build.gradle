@@ -21,7 +21,12 @@ if (ghidraInstallDir) {
 	apply from: new File(ghidraInstallDir).getCanonicalPath() + "/support/buildExtension.gradle"
 }
 else {
-	throw new GradleException("GHIDRA_INSTALL_DIR is not defined! Set the environment variable or pass -PGHIDRA_INSTALL_DIR=<path>")
+	throw new GradleException("""GHIDRA_INSTALL_DIR is not defined. Point it at your Ghidra folder (the one containing ghidraRun and support/), using any ONE of:
+  PowerShell : \$env:GHIDRA_INSTALL_DIR = "C:\\path\\to\\ghidra_12.0.1_PUBLIC"
+  cmd        : set GHIDRA_INSTALL_DIR=C:\\path\\to\\ghidra_12.0.1_PUBLIC
+  Linux/macOS: export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC
+  one-off    : gradlew buildExtension -PGHIDRA_INSTALL_DIR=<path>
+  permanent  : add GHIDRA_INSTALL_DIR=<path with forward slashes> to <your user home>/.gradle/gradle.properties""")
 }
 //----------------------END "DO NOT MODIFY" SECTION-------------------------------
 

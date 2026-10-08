@@ -24,6 +24,8 @@ export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC     # Windows: set GHIDR
 ./gradlew buildExtension          # → dist/ghidra_<ver>_<date>_GhidraLocalLLM.zip
 ```
 
+On Windows PowerShell use `$env:GHIDRA_INSTALL_DIR = "C:\path\to\ghidra_12.0.1_PUBLIC"` and `.\gradlew.bat`. To avoid setting it each time, add `GHIDRA_INSTALL_DIR=C:/path/to/ghidra_12.0.1_PUBLIC` to `~/.gradle/gradle.properties`.
+
 ## Test
 
 ```bash
