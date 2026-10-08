@@ -1,1 +1,6 @@
+// Lets Gradle locate (or download) the JDK 21 required by gradle/gradle-daemon-jvm.properties.
+plugins {
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+}
+
 rootProject.name = 'GhidraLocalLLM'

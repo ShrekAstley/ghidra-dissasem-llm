@@ -17,7 +17,7 @@ versioned for the Ghidra it was built against (Ghidra refuses to install extensi
 
 ## Build
 
-Check which JDK Gradle will use first: `./gradlew --version` (look at the *JVM* line). If it is not 21, set `JAVA_HOME` to a JDK 21 install. Running on a newer JDK fails immediately with `Unsupported class file major version NN` (70 = Java 26).
+The build is pinned to JDK 21 via `gradle/gradle-daemon-jvm.properties`: Gradle uses an installed JDK 21 or downloads one (Foojay) automatically, whatever `JAVA_HOME` is. Check with `./gradlew --version` (look at the *JVM* line). If it is not 21, set `JAVA_HOME` to a JDK 21 install. Running on a newer JDK fails immediately with `Unsupported class file major version NN` (70 = Java 26).
 
 ```bash
 export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC     # Windows: set GHIDRA_INSTALL_DIR=C:\ghidra...
