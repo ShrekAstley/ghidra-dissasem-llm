@@ -17,7 +17,7 @@ signatures and types — which change your database only after you approve each 
 
 ## Principles
 
-1. **Local-first.** No cloud models, embeddings, telemetry, or uploads. Default network path: `Ghidra → localhost → LM Studio`. Non-loopback endpoints are blocked unless you explicitly allow them.
+1. **Local-first by default.** Out of the box the only network path is `Ghidra → localhost → LM Studio`; there is no telemetry and nothing is uploaded. Remote providers are **opt-in**: choosing one shows what will leave your machine and requires you to approve that specific host; until then every request to it is refused. A persistent `☁ REMOTE: host` badge shows when one is active.
 2. **Never silently modify the program.** Proposal → preview → your approval → validation → one undoable transaction.
 3. **Evidence before conclusions.** The model must cite tool output and label certainty; decompiler output is treated as fallible.
 4. **Bounded agent.** Limits on tool calls, steps, repeats, result size, time; Stop works immediately.
@@ -30,6 +30,8 @@ signatures and types — which change your database only after you approve each 
 * **41 tools** including `get_function_decompile`, `get_function_assembly`, `get_callers/callees`, `get_xrefs_to/from`, strings/symbol/data-type search, memory reads, `trace_value` (backward/forward data-flow with *verified* vs *inferred* labels) and `propose_*` tools.
 * **Proposals tab**: preview, edit, approve, reject; analyst-chosen names/comments are protected until you confirm an overwrite. Supports rename function/variable/parameter, signature, comment, label, structure, enum, apply type.
 * **Analyze Program**: progressive architecture analysis (facts → per-function summaries → subsystem synthesis) with a drill-down tree; the model never receives the whole binary.
+* **Providers:** LM Studio (local, default), any OpenAI-compatible server (Ollama, llama.cpp, vLLM, OpenAI, OpenRouter…) and Anthropic Claude. API keys come from an environment variable (preferred) or an owner-only local file, never `settings.json`.
+* **MCP server** (off by default): exposes the same Ghidra tools to MCP clients such as Claude Code, Cursor or VS Code over loopback HTTP with a bearer token; read-only unless you enable proposals, which still need your approval in Ghidra. A dependency-free stdio bridge covers stdio-only clients like Claude Desktop. See [docs/providers-and-mcp.md](docs/providers-and-mcp.md).
 * **Knowledge** tab: local SQLite notes (summaries, hypotheses, approved names, your notes).
 * **Debug Log** and **Expert mode**: requests, tool calls/results, timings, token usage; program data is flagged 🔒 and maskable.
 * Works with models **without native tool calling** via a validated `<tool_call>` fallback protocol.
@@ -64,12 +66,32 @@ Requirements: Ghidra 12.0.x, JDK 21, [LM Studio](https://lmstudio.ai).
 
 Right-click in the Listing → **Local LLM** for the same actions.
 
+## Using Claude, OpenAI or another hosted model (optional)
+
+1. ⚙ Settings → **Provider** → choose *Anthropic Claude* or *OpenAI-compatible*.
+2. Provide the key as an environment variable name (preferred, e.g. `ANTHROPIC_API_KEY`) or paste it (stored in `secrets.json`, owner-only).
+3. Pick a model (*Refresh models*), then **Test Connection** — you will be asked to approve sending program data to that host first.
+4. The header now shows **☁ REMOTE: api.anthropic.com**. Switch back to *LM Studio* at any time.
+
+Everything the model sees (decompiled code, assembly, strings, memory, your questions) is sent to that provider; only do this for binaries you are allowed to share.
+
+## Letting MCP clients use Ghidra (optional)
+
+⚙ Settings → **MCP server** → enable → *Claude Code command* copies, e.g.:
+
+```bash
+claude mcp add --transport http ghidra http://127.0.0.1:8765/mcp --header "Authorization: Bearer <token>"
+```
+
+Details, other clients, the stdio bridge and the security model: [docs/providers-and-mcp.md](docs/providers-and-mcp.md).
+
 ## Security model (summary)
 
 * The model's output is data. Tool names are looked up in a fixed registry; arguments are schema-validated; nothing is `eval`ed or executed.
 * Tools are classified `READ_PROGRAM` / `PROPOSE_CHANGE` / `LOCAL_KNOWLEDGE`; proposal and knowledge tools can be switched off.
-* HTTP goes through a client with the system proxy disabled and a loopback-only guard.
-* Prompts, tool results and the knowledge DB stay on your machine; the Debug Log is in memory and exported only when you ask.
+* HTTP to local servers bypasses system proxies; any non-loopback host is refused until you approve that exact host in Settings (the model cannot grant this).
+* With the default local provider, prompts, tool results and the knowledge DB stay on your machine; the Debug Log is in memory and exported only when you ask. With a remote provider, prompts and tool results go to that provider.
+* The optional MCP server binds to `127.0.0.1` only, requires a bearer token, validates `Host`/`Origin` (DNS-rebinding protection) and exposes inspection tools only unless you opt in to proposals.
 * Prompt injection from binary content (strings, comments) can influence the model but not escape the tool boundary; every modification still needs your click.
 
 See [docs/architecture.md](docs/architecture.md) and [docs/tools.md](docs/tools.md).
@@ -82,6 +104,9 @@ See [docs/architecture.md](docs/architecture.md) and [docs/tools.md](docs/tools.
 | "No model is loaded" | Load a model in LM Studio. |
 | "prompt exceeds the model's context window" | Reload the model with a larger context or lower *Context budget* in Settings. |
 | Model ignores tools / malformed tool calls | Set *Tool protocol* to `PROMPTED` (or try a model with tool support). |
+| `The configured endpoint is a remote host you have not approved` | Open Settings and approve the host (or switch back to LM Studio). |
+| `The provider rejected the API key` | Check the key or the environment variable name in Settings → Provider. Environment variables must be visible to the process that launched Ghidra. |
+| MCP server `Could not start … port` | The port is in use; pick another in Settings → MCP server. |
 | Slow answers / timeouts | Raise *Request timeout*; use a smaller or quantized model; lower tool-call limit. |
 | "Decompiler failed" in results | Ensure the function is analyzed; the assistant falls back to assembly. |
 | Build fails with `Unsupported class file major version 70` (or 65+ numbers like 68/69) | Gradle is running on a JDK newer than it supports (70 = Java 26; Gradle 8.14 supports up to ~Java 24). The repo pins Gradle's daemon to **JDK 21** (`gradle/gradle-daemon-jvm.properties`; it is auto-downloaded if missing), so pull the latest and rebuild. If it still fails, set `export JAVA_HOME=/path/to/jdk-21` (Windows: `set JAVA_HOME=C:\path\to\jdk-21`), confirm with `./gradlew --version`, then rebuild. Ghidra 12 itself requires JDK 21+. |
@@ -93,7 +118,9 @@ See [docs/architecture.md](docs/architecture.md) and [docs/tools.md](docs/tools.
 
 * Responses are not streamed token-by-token (the full reply appears when ready; Stop cancels the request).
 * Quality depends on the local model; the tool boundary and evidence labels reduce, not eliminate, hallucination.
-* Verified against Ghidra 12.0.1 and a mocked LM Studio; not yet exercised against every real model family.
+* Verified against Ghidra 12.0.1 with a mocked LM Studio / OpenAI / Anthropic server and curl-driven MCP calls; **not yet run against the real Claude or OpenAI APIs, a real LM Studio model, or Claude Desktop / Claude Code as MCP clients** (no keys or clients in the build environment).
+* Cloud-hosted MCP services cannot reach a loopback server; the MCP server is for clients running on your machine.
+* The assistant does not *consume* external MCP servers (a stdio MCP server is arbitrary process execution, which conflicts with the tool-permission boundary).
 
 ## Project docs
 

@@ -12,12 +12,22 @@ public final class OpenAiJson {
 	private OpenAiJson() {}
 
 	public static String toRequestJson(ChatRequest req) {
+		return toRequestJson(req, "max_tokens", true);
+	}
+
+	/**
+	 * @param maxTokensField {@code max_tokens} (LM Studio, most servers) or {@code max_completion_tokens} (newer OpenAI models)
+	 * @param includeTemperature false for models that reject sampling parameters
+	 */
+	public static String toRequestJson(ChatRequest req, String maxTokensField, boolean includeTemperature) {
 		JsonObject o = new JsonObject();
 		if (req.model() != null && !req.model().isBlank()) {
 			o.addProperty("model", req.model());
 		}
-		o.addProperty("temperature", req.temperature());
-		o.addProperty("max_tokens", req.maxTokens());
+		if (includeTemperature) {
+			o.addProperty("temperature", req.temperature());
+		}
+		o.addProperty(maxTokensField, req.maxTokens());
 		o.addProperty("stream", false);
 		JsonArray msgs = new JsonArray();
 		for (ChatMessage m : req.messages()) {

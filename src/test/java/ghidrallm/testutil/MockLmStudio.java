@@ -20,12 +20,20 @@ public class MockLmStudio implements AutoCloseable {
 	private final HttpServer server;
 	private final Deque<Function<JsonObject, Reply>> script = new ArrayDeque<>();
 	public final List<JsonObject> requests = new CopyOnWriteArrayList<>();
+	/** Headers (lower-cased names) of each chat/completions request, parallel to {@link #requests}. */
+	public final List<Map<String, String>> chatHeaders = new CopyOnWriteArrayList<>();
+	/** Anthropic-style /v1/messages traffic. */
+	public final List<JsonObject> messageRequests = new CopyOnWriteArrayList<>();
+	public final List<Map<String, String>> messageHeaders = new CopyOnWriteArrayList<>();
+	public final List<Map<String, String>> modelHeaders = new CopyOnWriteArrayList<>();
+	private final Deque<Function<JsonObject, Reply>> messageScript = new ArrayDeque<>();
 	public volatile List<String> models = List.of("test-model");
 	private volatile Function<JsonObject, Reply> fallback = r -> chatText("(no more scripted replies)");
 
 	public MockLmStudio() throws IOException {
 		server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
 		server.createContext("/v1/models", ex -> {
+			modelHeaders.add(headersOf(ex));
 			JsonArray data = new JsonArray();
 			for (String m : models) {
 				JsonObject o = new JsonObject();
@@ -41,13 +49,117 @@ public class MockLmStudio implements AutoCloseable {
 			String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 			JsonObject req = JsonParser.parseString(body).getAsJsonObject();
 			requests.add(req);
+			chatHeaders.add(headersOf(ex));
 			Function<JsonObject, Reply> f;
 			synchronized (script) {
 				f = script.isEmpty() ? fallback : script.poll();
 			}
 			respond(ex, f.apply(req));
 		});
+		server.createContext("/v1/messages", ex -> {
+			String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+			JsonObject req = JsonParser.parseString(body).getAsJsonObject();
+			messageRequests.add(req);
+			messageHeaders.add(headersOf(ex));
+			Function<JsonObject, Reply> f;
+			synchronized (messageScript) {
+				f = messageScript.isEmpty() ? r -> anthropicText("(no more scripted replies)") : messageScript.poll();
+			}
+			respond(ex, f.apply(req));
+		});
 		server.start();
+	}
+
+	private static Map<String, String> headersOf(com.sun.net.httpserver.HttpExchange ex) {
+		Map<String, String> m = new HashMap<>();
+		ex.getRequestHeaders().forEach((k, v) -> m.put(k.toLowerCase(), v.get(0)));
+		return m;
+	}
+
+	/** Queue a reply for POST /v1/messages (Anthropic wire format). */
+	public MockLmStudio thenMessage(Reply r) {
+		synchronized (messageScript) {
+			messageScript.add(req -> r);
+		}
+		return this;
+	}
+
+	public MockLmStudio thenMessage(Function<JsonObject, Reply> f) {
+		synchronized (messageScript) {
+			messageScript.add(f);
+		}
+		return this;
+	}
+
+	public static Reply anthropicText(String text) {
+		return anthropic(blocks(textBlock(text)), "end_turn", 100, 20);
+	}
+
+	public static Reply anthropicToolUse(String id, String name, String inputJson, boolean withThinking) {
+		JsonArray c = new JsonArray();
+		if (withThinking) {
+			JsonObject t = new JsonObject();
+			t.addProperty("type", "thinking");
+			t.addProperty("thinking", "");
+			t.addProperty("signature", "sig-" + id);
+			c.add(t);
+		}
+		c.add(textBlock("Checking."));
+		JsonObject u = new JsonObject();
+		u.addProperty("type", "tool_use");
+		u.addProperty("id", id);
+		u.addProperty("name", name);
+		u.add("input", JsonParser.parseString(inputJson));
+		c.add(u);
+		return anthropic(c, "tool_use", 120, 30);
+	}
+
+	public static Reply anthropicRefusal(String category) {
+		JsonObject root = JsonParser.parseString(anthropic(new JsonArray(), "refusal", 10, 0).body()).getAsJsonObject();
+		JsonObject d = new JsonObject();
+		d.addProperty("type", "refusal");
+		d.addProperty("category", category);
+		root.add("stop_details", d);
+		return new Reply(200, root.toString(), 0);
+	}
+
+	public static Reply anthropicError(int status, String type, String message) {
+		JsonObject e = new JsonObject();
+		e.addProperty("type", type);
+		e.addProperty("message", message);
+		JsonObject root = new JsonObject();
+		root.addProperty("type", "error");
+		root.add("error", e);
+		return new Reply(status, root.toString(), 0);
+	}
+
+	private static JsonObject textBlock(String t) {
+		JsonObject b = new JsonObject();
+		b.addProperty("type", "text");
+		b.addProperty("text", t);
+		return b;
+	}
+
+	private static JsonArray blocks(JsonObject... bs) {
+		JsonArray a = new JsonArray();
+		for (JsonObject b : bs) {
+			a.add(b);
+		}
+		return a;
+	}
+
+	private static Reply anthropic(JsonArray content, String stop, int in, int out) {
+		JsonObject root = new JsonObject();
+		root.addProperty("id", "msg_test");
+		root.addProperty("type", "message");
+		root.addProperty("role", "assistant");
+		root.add("content", content);
+		root.addProperty("stop_reason", stop);
+		JsonObject u = new JsonObject();
+		u.addProperty("input_tokens", in);
+		u.addProperty("output_tokens", out);
+		root.add("usage", u);
+		return new Reply(200, root.toString(), 0);
 	}
 
 	private static void respond(com.sun.net.httpserver.HttpExchange ex, Reply r) throws IOException {

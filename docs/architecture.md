@@ -20,11 +20,16 @@ Ghidra ── Program DB · Listing · Decompiler · Functions · Symbols · Dat
 │ knowledge/     KnowledgeStore (SQLite)                                │
 │ config/ log/   Settings · SettingsStore · DebugLog                    │
 ├────────────────────────────────────────────────────────────────────────┤
-│ llm/           LLMProvider  ◄── LMStudioProvider                      │
-└──────────────────────────────┬─────────────────────────────────────────┘
-                               │ HTTP, loopback only by default
-                               ▼
-                    LM Studio  /v1/models  /v1/chat/completions
+│ llm/           LLMProvider ◄─ RoutingProvider ─► LMStudioProvider     │
+│                                          ├► OpenAiCompatibleProvider  │
+│                                          └► AnthropicProvider         │
+│                EndpointPolicy (loopback or user-approved host only)   │
+│ mcp/           McpProtocol (JSON-RPC) · McpHttpServer (127.0.0.1)     │
+└───────────────┬──────────────────────────────────────▲─────────────────┘
+                │ HTTP: loopback by default,           │ MCP clients (loopback,
+                │ remote hosts only after consent      │ bearer token)
+                ▼                                      │
+     LM Studio (default) · OpenAI-compatible · Claude  Claude Code, Cursor, …
 ```
 
 ## Threading
@@ -103,3 +108,14 @@ except by name through the registry.
   program name + MD5. AI notes are labelled unverified.
 * `DebugLog` is in-memory (2000 entries). Entries holding program data are flagged 🔒 and can be masked
   in view, copy and export.
+
+## Providers, consent and MCP
+
+* `RoutingProvider` picks the implementation named by `Settings.providerType` on every call, so switching providers needs no restart.
+* All providers share `HttpTransport` (cancellation, timeouts, retries for 429/5xx/529 on remote hosts, proxy policy) and call
+  `EndpointPolicy.check` before every request; non-loopback hosts need an entry in `remoteConsentHosts` (written only by the settings UI).
+* Provider-specific conversation state (Claude `thinking`/`tool_use` blocks) rides in `ChatMessage.providerBlocks` and is
+  echoed back only inside the turn that produced it.
+* `SecretStore` keeps API keys and the MCP token outside `settings.json`.
+* `McpProtocol` serves `Tools.create(mcpAllowProposals, mcpAllowKnowledge)` — the same tool classes, permission model and
+  `ToolContext` as the in-app agent, so the MCP surface cannot drift from it. `AssistantService.reconfigureMcp()` starts/stops the listener from settings.

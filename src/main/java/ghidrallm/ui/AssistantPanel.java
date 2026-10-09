@@ -39,8 +39,10 @@ public class AssistantPanel extends JPanel {
 	private final JLabel programLabel = new JLabel("Program: –");
 	private final JLabel functionLabel = new JLabel("Function: –");
 	private final JLabel tokensLabel = new JLabel("tokens: –");
+	private final JLabel remoteBadge = new JLabel(" ");
 	private final JToggleButton expertToggle = new JToggleButton("Expert");
 	private final JPanel banner = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+	private final JLabel bannerMsg = new JLabel(" ");
 	private boolean updatingModelBox;
 	private volatile boolean connected;
 
@@ -94,7 +96,8 @@ public class AssistantPanel extends JPanel {
 		contextChanged();
 		checkConnectionAsync();
 		new Timer(10_000, e -> {
-			if (isShowing() && !service.isBusy()) {
+			// Only poll local servers; remote providers are checked on demand (rate limits, key exposure).
+			if (isShowing() && !service.isBusy() && !service.settings().isRemote()) {
 				checkConnectionAsync();
 			}
 		}).start();
@@ -145,10 +148,12 @@ public class AssistantPanel extends JPanel {
 		r2.add(programLabel);
 		r2.add(functionLabel);
 		r2.add(tokensLabel);
+		r2.add(remoteBadge);
 		p.add(r1);
 		p.add(r2);
 
-		JLabel msg = new JLabel("Start LM Studio, load a model and enable the local server (Developer tab).");
+		bannerMsg.setText("Start LM Studio, load a model and enable the local server (Developer tab).");
+		JLabel msg = bannerMsg;
 		JButton retry = new JButton("Retry Connection"), settings = new JButton("Settings");
 		retry.addActionListener(e -> checkConnectionAsync());
 		settings.addActionListener(e -> openSettings());
@@ -525,8 +530,24 @@ public class AssistantPanel extends JPanel {
 		}
 	}
 
+	private void updateRemoteBadge() {
+		Settings s = service.settings();
+		if (s.isRemote()) {
+			String host = ghidrallm.llm.EndpointPolicy.hostOf(s.endpoint);
+			remoteBadge.setText("☁ REMOTE: " + host);
+			remoteBadge.setForeground(Theme.bad());
+			remoteBadge.setToolTipText("Program data (code, strings, memory) is sent to " + host + " when you ask questions.");
+		}
+		else {
+			remoteBadge.setText("🔒 local");
+			remoteBadge.setForeground(Theme.ok());
+			remoteBadge.setToolTipText("All analysis stays on this machine.");
+		}
+	}
+
 	private void applySettingsToUi() {
 		Settings s = service.settings();
+		updateRemoteBadge();
 		expertToggle.setSelected(s.expertMode);
 		transcript.setExpert(s.expertMode);
 		temp.setValue(s.temperature);
@@ -547,24 +568,36 @@ public class AssistantPanel extends JPanel {
 		});
 	}
 
+	private String providerName() {
+		return switch (service.settings().providerType) {
+			case "ANTHROPIC" -> "Claude (Anthropic)";
+			case "OPENAI_COMPATIBLE" -> "OpenAI-compatible provider";
+			default -> "LM Studio";
+		};
+	}
+
 	private void showStatus(AssistantService.Status st) {
+		boolean remote = service.settings().isRemote();
+		String name = providerName();
 		connected = st.connected() && !st.model().isBlank() && st.message().isEmpty();
 		Color c = connected ? Theme.ok() : st.connected() ? Theme.possible() : Theme.bad();
 		statusDot.setForeground(c);
 		statusDot.setText(st.connected() ? "●" : "○");
 		if (connected) {
-			statusText.setText("LM Studio Connected");
+			statusText.setText(name + " Connected");
 		}
 		else if (st.connected()) {
-			statusText.setText("LM Studio: " + st.message());
+			statusText.setText(name + ": " + st.message());
 		}
 		else {
-			statusText.setText("LM Studio Disconnected");
+			statusText.setText(name + " Disconnected");
 		}
+		bannerMsg.setText(remote ? "<html>" + ghidrallm.util.Text.escapeHtml(st.message()) + "</html>"
+				: "Start LM Studio, load a model and enable the local server (Developer tab).");
 		banner.setVisible(!st.connected());
+		updateRemoteBadge();
 		statusDot.setToolTipText(st.message().isEmpty() ? service.settings().endpoint : st.message());
 		updatingModelBox = true;
-		Object keep = service.settings().model;
 		modelBox.removeAllItems();
 		modelBox.addItem("(auto: loaded model)");
 		for (String m : st.models()) {

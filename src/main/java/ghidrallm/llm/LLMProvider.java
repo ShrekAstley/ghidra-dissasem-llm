@@ -22,6 +22,16 @@ public interface LLMProvider {
 	 */
 	ChatResponse chat(ChatRequest request, CancellationToken cancel) throws LLMException;
 
+	/** Whether AUTO tool mode may fall back to the prompted protocol after a rejected request. */
+	default boolean canFallBackToPrompted() {
+		return true;
+	}
+
+	/** True for hosted providers where a model must be chosen explicitly (no "whatever is loaded"). */
+	default boolean requiresExplicitModel() {
+		return false;
+	}
+
 	/** Runs the three-step connection test used by the settings dialog. */
 	ConnectionReport testConnection(String model);
 }

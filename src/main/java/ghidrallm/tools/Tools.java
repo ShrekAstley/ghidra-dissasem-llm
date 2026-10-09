@@ -11,11 +11,16 @@ public final class Tools {
 	private Tools() {}
 
 	public static ToolRegistry create(Settings s) {
+		return create(s.allowProposalTools, s.allowKnowledgeTools);
+	}
+
+	/** Registry with READ_PROGRAM always, plus the optional permission classes. */
+	public static ToolRegistry create(boolean proposals, boolean knowledge) {
 		Set<ToolPermission> granted = EnumSet.of(ToolPermission.READ_PROGRAM);
-		if (s.allowProposalTools) {
+		if (proposals) {
 			granted.add(ToolPermission.PROPOSE_CHANGE);
 		}
-		if (s.allowKnowledgeTools) {
+		if (knowledge) {
 			granted.add(ToolPermission.LOCAL_KNOWLEDGE);
 		}
 		ToolRegistry r = new ToolRegistry(granted);

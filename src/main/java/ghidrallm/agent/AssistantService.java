@@ -13,6 +13,7 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidrallm.changes.ProposalManager;
 import ghidrallm.config.Settings;
+import ghidrallm.config.SecretStore;
 import ghidrallm.config.SettingsStore;
 import ghidrallm.ghidra.ContextCollector;
 import ghidrallm.ghidra.DecompilerService;
@@ -23,6 +24,8 @@ import ghidrallm.knowledge.Note;
 import ghidrallm.knowledge.ProgramKeys;
 import ghidrallm.llm.*;
 import ghidrallm.log.DebugLog;
+import ghidrallm.mcp.McpHttpServer;
+import ghidrallm.mcp.McpProtocol;
 import ghidrallm.tools.*;
 import ghidrallm.util.CancellationToken;
 import ghidrallm.util.Text;
@@ -44,6 +47,7 @@ public class AssistantService implements AutoCloseable {
 	private final ProposalManager proposals;
 	private volatile KnowledgeStore knowledge;
 	private final LLMProvider provider;
+	private final SecretStore secrets;
 	private volatile ToolRegistry registry;
 	private volatile AgentLoop loop;
 	private final Conversation conversation = new Conversation();
@@ -52,6 +56,10 @@ public class AssistantService implements AutoCloseable {
 		t.setDaemon(true);
 		return t;
 	});
+	private volatile McpHttpServer mcpServer;
+	private volatile McpProtocol mcpProtocol;
+	private volatile String mcpError = "";
+	private volatile int mcpBoundPort;
 	private volatile CancellationToken active;
 	private volatile ArchitectureReport lastReport;
 	private volatile LastAsk lastAsk;
@@ -68,10 +76,63 @@ public class AssistantService implements AutoCloseable {
 		this.settings = store.load();
 		this.decompiler = new DecompilerService(60);
 		this.proposals = new ProposalManager(access::program, decompiler);
-		this.provider = new LMStudioProvider(() -> settings);
+		this.secrets = new SecretStore(dataDir);
+		java.util.function.Function<Settings, String> keys = st -> secrets.apiKey(st.providerType, st.apiKeyEnv);
+		java.util.Map<String, LLMProvider> impls = new java.util.LinkedHashMap<>();
+		impls.put("LMSTUDIO", new LMStudioProvider(() -> settings));
+		impls.put("OPENAI_COMPATIBLE", new OpenAiCompatibleProvider("openai-compatible", () -> settings, keys));
+		impls.put("ANTHROPIC", new AnthropicProvider(() -> settings, keys));
+		this.provider = new RoutingProvider(() -> settings, impls);
 		openKnowledge();
 		rebuildTools();
 		proposals.setOnApplied(p -> recordApproved(p));
+		reconfigureMcp();
+	}
+
+	// ---- MCP server ---------------------------------------------------------------------------
+
+	/** Starts, stops or restarts the MCP server to match the current settings. Safe to call repeatedly. */
+	public synchronized void reconfigureMcp() {
+		Settings s = settings;
+		McpHttpServer running = mcpServer;
+		if (running != null && (!s.mcpEnabled || mcpBoundPort != s.mcpPort)) {
+			running.close();
+			mcpServer = null;
+			running = null;
+			log.info("MCP server stopped");
+		}
+		if (!s.mcpEnabled) {
+			mcpError = "";
+			return;
+		}
+		if (mcpProtocol == null) {
+			mcpProtocol = new McpProtocol(() -> Tools.create(settings.mcpAllowProposals, settings.mcpAllowKnowledge),
+				tok -> toolContext(tok), () -> settings, log);
+		}
+		if (running == null) {
+			try {
+				mcpServer = new McpHttpServer(s.mcpPort, secrets::mcpToken, mcpProtocol, log);
+				mcpBoundPort = mcpServer.port();
+				mcpError = "";
+				log.info("MCP server listening on " + mcpUrl() + " (loopback only, bearer token required)");
+			}
+			catch (java.io.IOException | RuntimeException e) {
+				mcpError = "Could not start MCP server on port " + s.mcpPort + ": " + e.getMessage();
+				log.error(mcpError, e);
+			}
+		}
+	}
+
+	public boolean mcpRunning() {
+		return mcpServer != null;
+	}
+
+	public String mcpError() {
+		return mcpError;
+	}
+
+	public String mcpUrl() {
+		return "http://127.0.0.1:" + (mcpServer != null ? mcpBoundPort : settings.mcpPort) + "/mcp";
 	}
 
 	private void openKnowledge() {
@@ -118,6 +179,10 @@ public class AssistantService implements AutoCloseable {
 		return conversation;
 	}
 
+	public SecretStore secrets() {
+		return secrets;
+	}
+
 	public LLMProvider provider() {
 		return provider;
 	}
@@ -153,6 +218,7 @@ public class AssistantService implements AutoCloseable {
 		if (knowledgeChanged) {
 			openKnowledge();
 		}
+		reconfigureMcp();
 		log.info("Settings updated (endpoint " + s.endpoint + ", model '" + s.model + "', tool mode " + s.toolMode + ")");
 	}
 
@@ -182,8 +248,11 @@ public class AssistantService implements AutoCloseable {
 			if (models.isEmpty()) {
 				return new Status(true, "", "Connected, but no model is loaded in LM Studio.", models);
 			}
+			if (settings.model.isBlank() && provider.requiresExplicitModel()) {
+				return new Status(true, "", "Choose a model in Settings (" + models.size() + " available).", models);
+			}
 			String m = settings.model.isBlank() ? models.get(0) : settings.model;
-			boolean present = models.contains(m);
+			boolean present = models.contains(m) || provider.requiresExplicitModel();
 			return new Status(true, m, present ? "" : "Configured model '" + m + "' is not loaded.", models);
 		}
 		catch (LLMException e) {
@@ -260,6 +329,11 @@ public class AssistantService implements AutoCloseable {
 				done.accept(r);
 			}
 		});
+	}
+
+	/** A tool context bound to the current Ghidra state; used by the agent and the MCP server. */
+	public ToolContext newToolContext(CancellationToken token) {
+		return toolContext(token);
 	}
 
 	private ToolContext toolContext(CancellationToken token) {
@@ -533,6 +607,13 @@ public class AssistantService implements AutoCloseable {
 	@Override
 	public void close() {
 		stop();
+		McpHttpServer m = mcpServer;
+		if (m != null) {
+			m.close();
+		}
+		if (mcpProtocol != null) {
+			mcpProtocol.close();
+		}
 		worker.shutdownNow();
 		decompiler.close();
 		if (knowledge != null) {

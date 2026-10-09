@@ -11,6 +11,8 @@ The automated tests follow the Gradle convention and live in [`src/test/java`](.
 | `GhidraToolsTest` | every inspection tool against a real x86-64 program in headless Ghidra (including decompiler and data-flow tracing) |
 | `ProposalTest` | every change type: proposing never modifies the program, approve/reject/edit, validation, analyst-name protection, undo |
 | `AssistantServiceTest` | end to end: mock LM Studio + real Ghidra program, context reuse, regenerate, stop, program analysis |
+| `RemoteProvidersTest` | OpenAI-compatible and Anthropic providers: auth headers, request/response mapping, thinking-block echo, temperature rules, refusal, retries, consent policy, secrets, routing, agent loop over Claude |
+| `McpServerTest`, `McpBridgeTest` | MCP protocol over real HTTP against a real Ghidra program: negotiation, tool list/call, permission gating, bearer/Origin/Host checks, loopback-only bind, limits; the stdio bridge as a subprocess |
 | `KnowledgeAndSettingsTest`, `MarkdownRendererTest` | SQLite store, settings persistence, UI renderer |
 
 No live LLM is needed: `testutil/MockLmStudio` is a scripted OpenAI-compatible server and

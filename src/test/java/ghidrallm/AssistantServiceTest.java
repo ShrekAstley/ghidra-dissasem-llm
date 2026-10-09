@@ -241,4 +241,72 @@ class AssistantServiceTest {
 		f.get(20, TimeUnit.SECONDS);
 		assertEquals(AgentResult.Status.CANCELLED, out.get().status());
 	}
+
+	@Test
+	void mcpServerStartsAndStopsWithSettingsAndServesTheOpenProgram() throws Exception {
+		int port;
+		try (java.net.ServerSocket ss = new java.net.ServerSocket(0)) {
+			port = ss.getLocalPort();
+		}
+		assertFalse(svc.mcpRunning(), "off by default");
+		Settings s = svc.settings().copy();
+		s.mcpEnabled = true;
+		s.mcpPort = port;
+		svc.updateSettings(s);
+		assertTrue(svc.mcpRunning(), svc.mcpError());
+		assertEquals("http://127.0.0.1:" + port + "/mcp", svc.mcpUrl());
+		java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder().proxy(java.net.ProxySelector.of(null)).build();
+		String token = svc.secrets().mcpToken();
+		java.util.function.Function<String, java.net.http.HttpResponse<String>> post = body -> {
+			try {
+				return http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(svc.mcpUrl())).header("Authorization", "Bearer " + token)
+						.POST(java.net.http.HttpRequest.BodyPublishers.ofString(body)).build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+			}
+			catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		};
+		String r = post.apply("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_current_function\",\"arguments\":{}}}").body();
+		assertTrue(r.contains("FUN_00401000"), r);
+		// propose tools hidden until enabled in settings
+		assertFalse(post.apply("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}").body().contains("propose_rename_function"));
+		Settings s2 = svc.settings().copy();
+		s2.mcpAllowProposals = true;
+		svc.updateSettings(s2);
+		assertTrue(post.apply("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}").body().contains("propose_rename_function"));
+		// disabling stops the listener
+		Settings s3 = svc.settings().copy();
+		s3.mcpEnabled = false;
+		svc.updateSettings(s3);
+		assertFalse(svc.mcpRunning());
+		assertThrows(RuntimeException.class, () -> post.apply("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ping\"}"));
+	}
+
+	@Test
+	void mcpPortConflictIsReportedNotThrown() throws Exception {
+		try (java.net.ServerSocket busy = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+			Settings s = svc.settings().copy();
+			s.mcpEnabled = true;
+			s.mcpPort = busy.getLocalPort();
+			svc.updateSettings(s);
+			assertFalse(svc.mcpRunning());
+			assertTrue(svc.mcpError().contains("Could not start MCP server"), svc.mcpError());
+		}
+	}
+
+	@Test
+	void switchingProviderToUnapprovedRemoteFailsSafelyWithoutNetworkTraffic() throws Exception {
+		Settings s = svc.settings().copy();
+		s.providerType = "ANTHROPIC";
+		s.endpoint = "https://api.anthropic.com/v1";
+		s.model = "claude-sonnet-5-5";
+		svc.updateSettings(s);
+		var st = svc.checkConnection();
+		assertFalse(st.connected());
+		assertTrue(st.message().contains("remote host you have not approved"), st.message());
+		AgentResult r = ask("hello");
+		assertEquals(AgentResult.Status.ERROR, r.status());
+		assertTrue(r.error().contains("not approved"), r.error());
+		assertTrue(server.requests.isEmpty() && server.messageRequests.isEmpty());
+	}
 }

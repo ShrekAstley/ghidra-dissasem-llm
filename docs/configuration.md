@@ -3,11 +3,14 @@
 Settings are edited in **⚙ Settings** (or the header controls) and stored as JSON in the Ghidra user
 settings directory: `<Ghidra user settings dir>/local-llm-re/settings.json` (on Linux typically
 `~/.config/ghidra/ghidra_<version>/local-llm-re/`). The knowledge database `knowledge.db` lives in the
-same folder. Nothing is machine-specific; delete the folder to reset everything.
+same folder, as is `secrets.json` (API keys, MCP token). Nothing is machine-specific; delete the folder to reset everything.
 
 | Setting | Default | Notes |
 |---|---|---|
-| LM Studio URL | `http://localhost:1234/v1` | Loopback only unless *Allow non-localhost endpoint* is ticked. |
+| Provider | `LMSTUDIO` | `LMSTUDIO`, `OPENAI_COMPATIBLE`, `ANTHROPIC`. Per-provider URL/model/key-env are remembered. |
+| URL | `http://localhost:1234/v1` | Non-loopback hosts must be approved in the settings dialog (`remoteConsentHosts`). |
+| API key / env var | – | Env var name preferred; pasted keys go to `secrets.json`, never `settings.json`. |
+| Reasoning effort | *(blank)* | Claude only: `low`…`max`. |
 | Model | *(empty)* | Empty = the model LM Studio reports first (embedding models skipped). |
 | Temperature | `0.2` | Low values recommended. |
 | Max output tokens | `2048` | Per model reply. |
@@ -20,6 +23,7 @@ same folder. Nothing is machine-specific; delete the folder to reset everything.
 | Agent time limit | `600 s` | Whole question. |
 | Tool protocol | `AUTO` | `AUTO`, `NATIVE`, `PROMPTED`. |
 | Program-analysis functions | `25` | Key functions summarized by *Analyze Program*. |
+| MCP server | off | Loopback HTTP; port `8765`; read-only unless proposals/knowledge are ticked. Token in `secrets.json`. |
 | Allow change proposals | on | Revoke to make the model strictly read-only. |
 | Allow knowledge tools | on | Lets the model call `save_note` / `recall_notes`. |
 | Persist knowledge | on | SQLite file; off = no database at all. |

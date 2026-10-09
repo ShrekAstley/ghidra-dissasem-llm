@@ -67,18 +67,17 @@ src/test/java/ghidrallm                                      unit + integration 
 docs/  examples/  tests/README.md
 ```
 
-## Adding another local LLM provider
+## Adding another LLM provider
 
-1. Implement `ghidrallm.llm.LLMProvider` (`id`, `listModels`, `chat`, `testConnection`). Map transport
-   failures to `LLMException` kinds, honor the `CancellationToken`, and **refuse non-local hosts**
-   unless the user opted in (copy the loopback check in `LMStudioProvider`).
-2. Reuse `OpenAiJson` if the server speaks the OpenAI chat format (Ollama, llama.cpp server, vLLM
-   all do); otherwise add your own (de)serializer producing/consuming `ChatRequest` / `ChatResponse`.
-3. Construct it in `AssistantService`'s constructor in place of `LMStudioProvider` (a provider
-   selector setting is the natural next step; only the constructor line and a settings field are needed).
-4. Test it with a scripted HTTP server like `MockLmStudio`.
+1. Implement `ghidrallm.llm.LLMProvider` (`id`, `listModels`, `chat`, `testConnection`; optionally `canFallBackToPrompted`,
+   `requiresExplicitModel`). Map failures to `LLMException` kinds and honor the `CancellationToken`.
+2. Use `HttpTransport` (cancellation, timeouts, retry policy, proxy handling) and call `EndpointPolicy.check(settings, uri)` before **every**
+   request so non-loopback hosts stay consent-gated. Take keys from the `Function<Settings,String>` passed in (backed by `SecretStore`).
+3. Servers speaking the OpenAI chat format usually need nothing new: use `OpenAiCompatibleProvider` with a different URL.
+4. Register it in `AssistantService`'s provider map, add a `ProviderInfo` entry in `SettingsDialog`, and extend `Settings.normalize()`.
+5. Test it against a scripted HTTP server (`MockLmStudio` has OpenAI- and Anthropic-shaped endpoints).
 
-Do **not** add cloud providers or telemetry; that is out of scope by design.
+New *hosted* providers must surface the data-leaves-the-machine warning (it is automatic for any non-loopback endpoint) and never log keys.
 
 ## Conventions
 

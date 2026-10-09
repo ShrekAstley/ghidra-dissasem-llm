@@ -111,7 +111,7 @@ public class AgentLoop {
 						step--;
 						continue;
 					}
-					if (e.getKind() == LLMException.Kind.BAD_REQUEST && !specs.isEmpty() && s.toolMode.equals("AUTO")) {
+					if (e.getKind() == LLMException.Kind.BAD_REQUEST && !specs.isEmpty() && s.toolMode.equals("AUTO") && provider.canFallBackToPrompted()) {
 						autoPrompted = true;
 						log.log(Category.AGENT, "Server rejected native tool calling; switching to prompted tool protocol", e.getMessage(), false);
 						ls.onStatus("Model lacks native tool calling; using prompted protocol");
@@ -167,7 +167,7 @@ public class AgentLoop {
 
 				boolean native_ = !resp.toolCalls().isEmpty();
 				if (native_) {
-					conv.append(turn, ChatMessage.assistantWithCalls(visible, reqCalls));
+					conv.append(turn, ChatMessage.assistantWithCalls(visible, reqCalls).withProviderBlocks(resp.providerBlocks()));
 				}
 				else {
 					conv.append(turn, ChatMessage.assistant(resp.content()));
@@ -276,6 +276,9 @@ public class AgentLoop {
 	private String resolveModel(Settings s, AgentListener ls) throws LLMException {
 		if (s.model != null && !s.model.isBlank()) {
 			return s.model;
+		}
+		if (provider.requiresExplicitModel()) {
+			throw new LLMException(LLMException.Kind.NO_MODEL, "choose a model for this provider in Settings");
 		}
 		String m = resolvedModel;
 		if (m == null) {

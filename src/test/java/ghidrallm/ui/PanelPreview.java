@@ -145,23 +145,21 @@ public class PanelPreview {
 			Thread.sleep(300);
 			shot(frame[0], new File(outDir, theme + "-5-debug.png"));
 
-			// settings dialog
+			// settings dialog: provider tab (local), provider tab (Claude, remote warning), MCP tab
 			SwingUtilities.invokeAndWait(() -> {
 				SettingsDialog d = new SettingsDialog(frame[0], svc);
-				BufferedImage img = new BufferedImage(d.getWidth(), d.getHeight(), BufferedImage.TYPE_INT_RGB);
-				d.getContentPane().setSize(d.getSize());
-				d.getContentPane().doLayout();
 				d.addNotify();
+				d.setSize(700, 800);
 				d.validate();
-				Graphics2D g = img.createGraphics();
-				d.getContentPane().paint(g);
-				g.dispose();
-				try {
-					ImageIO.write(img, "png", new File(outDir, theme + "-6-settings.png"));
-				}
-				catch (java.io.IOException e) {
-					throw new RuntimeException(e);
-				}
+				snapshot(d, new File(outDir, theme + "-6-settings-local.png"));
+				JComboBox<?> prov = find(d.getContentPane(), JComboBox.class);
+				prov.setSelectedIndex(2);
+				d.validate();
+				snapshot(d, new File(outDir, theme + "-6-settings-claude.png"));
+				JTabbedPane tp = find(d.getContentPane(), JTabbedPane.class);
+				tp.setSelectedIndex(2);
+				d.validate();
+				snapshot(d, new File(outDir, theme + "-6-settings-mcp.png"));
 				d.dispose();
 			});
 			Thread.sleep(300);
@@ -180,6 +178,47 @@ public class PanelPreview {
 			SwingUtilities.invokeAndWait(() -> frame[0].dispose());
 			svc.close();
 			program.release(PanelPreview.class);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	static <T extends Component> T find(Container c, Class<T> type) {
+		for (Component k : c.getComponents()) {
+			if (type.isInstance(k)) {
+				return (T) k;
+			}
+			if (k instanceof Container cc) {
+				T r = find(cc, type);
+				if (r != null) {
+					return r;
+				}
+			}
+		}
+		return null;
+	}
+
+	static void snapshot(JDialog d, File out) {
+		BufferedImage img = new BufferedImage(d.getWidth(), d.getHeight(), BufferedImage.TYPE_INT_RGB);
+		d.getContentPane().setSize(d.getSize());
+		d.getContentPane().doLayout();
+		layoutAll(d.getContentPane());
+		Graphics2D g = img.createGraphics();
+		d.getContentPane().paint(g);
+		g.dispose();
+		try {
+			ImageIO.write(img, "png", out);
+		}
+		catch (java.io.IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	static void layoutAll(Container c) {
+		c.doLayout();
+		for (Component k : c.getComponents()) {
+			if (k instanceof Container cc) {
+				layoutAll(cc);
+			}
 		}
 	}
 
