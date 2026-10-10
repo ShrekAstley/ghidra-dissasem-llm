@@ -83,7 +83,13 @@ public final class DumpTools {
 	}
 
 	private static void markEntry(Program p, String text, StringBuilder sb) throws ToolException {
-		Address a = p.getAddressFactory().getDefaultAddressSpace().getAddress(text.trim().replaceFirst("^0[xX]", ""));
+		Address a;
+		try {
+			a = p.getAddressFactory().getDefaultAddressSpace().getAddress(text.trim().replaceFirst("^0[xX]", ""));
+		}
+		catch (ghidra.program.model.address.AddressFormatException e) {
+			throw new ToolException("oep " + text + " is not a valid address.");
+		}
 		if (a == null || !p.getMemory().contains(a)) {
 			throw new ToolException("oep " + text + " is not inside the dump's memory.");
 		}

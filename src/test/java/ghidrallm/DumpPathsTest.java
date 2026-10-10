@@ -28,6 +28,9 @@ class DumpPathsTest {
 			assertThrows(IllegalArgumentException.class, () -> DumpPaths.resolve(root, "../" + outside.getFileName()));
 			assertThrows(IllegalArgumentException.class, () -> DumpPaths.resolve(root, outside.toString()));
 			assertThrows(IllegalArgumentException.class, () -> DumpPaths.resolve(root, "missing.bin"));
+			// Same message whether or not the target outside the folder exists.
+			assertEquals("path is outside the dumps folder",
+				assertThrows(IllegalArgumentException.class, () -> DumpPaths.resolve(root, "../no-such-file-here")).getMessage());
 			assertThrows(IllegalArgumentException.class, () -> DumpPaths.resolve(root, " "));
 		}
 		finally {

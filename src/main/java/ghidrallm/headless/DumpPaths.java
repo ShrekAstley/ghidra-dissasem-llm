@@ -24,6 +24,10 @@ public final class DumpPaths {
 		catch (InvalidPathException e) {
 			throw new IllegalArgumentException("invalid path: " + requested);
 		}
+		// Containment first, so a caller cannot probe which files exist outside the folder.
+		if (!p.startsWith(realRoot)) {
+			throw new IllegalArgumentException("path is outside the dumps folder");
+		}
 		if (!Files.isRegularFile(p)) {
 			throw new IllegalArgumentException("no such file in the dumps folder: " + requested);
 		}
