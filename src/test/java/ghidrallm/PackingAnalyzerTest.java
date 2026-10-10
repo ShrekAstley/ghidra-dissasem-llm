@@ -57,6 +57,15 @@ class PackingAnalyzerTest {
 	}
 
 	@Test
+	void blankedSectionNamesDoNotFlagEntryInFirstCodeSection() {
+		Report r = PackingAnalyzer.analyze(new Facts(
+			List.of(b("SECTION.0", true, true, 900_000, 7.99), b("SECTION.1", false, true, 4096, 2.0)), "SECTION.0", 200, 900, 900_000));
+		assertEquals(Verdict.NONE, PackingAnalyzer.analyze(new Facts(
+			List.of(b("SECTION.0", true, true, 2000, 5.0)), "SECTION.0", 200, 900, 2000)).verdict());
+		assertTrue(r.evidence().stream().noneMatch(e -> e.startsWith("Entry point")), r.format());
+	}
+
+	@Test
 	void entropyOfConstantAndRandomData() {
 		assertEquals(0.0, PackingAnalyzer.entropy(new byte[1000], 1000), 1e-9);
 		byte[] rnd = new byte[1 << 16];

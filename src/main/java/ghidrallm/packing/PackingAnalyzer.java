@@ -96,10 +96,14 @@ public final class PackingAnalyzer {
 
 		if (f.entryBlock() != null) {
 			Block entry = f.blocks().stream().filter(b -> b.name().equals(f.entryBlock())).findFirst().orElse(null);
+			Block firstCode = f.blocks().stream().filter(Block::executable).findFirst().orElse(null);
 			String n = f.entryBlock().toLowerCase(Locale.ROOT);
-			if (entry != null && !n.equals(".text") && !n.equals("code") && !n.equals(".code") && !n.equals("text")
-					&& !NAMED.keySet().stream().anyMatch(n::startsWith)) {
-				ev.add("Entry point lies in '" + f.entryBlock() + "', not the main code section.");
+			// Protectors blank section names, so "not .text" alone is meaningless: the entry is only odd when it is not in the
+			// first executable block (the normal place for startup code) and the name is not a conventional code name.
+			boolean conventional = n.equals(".text") || n.equals("code") || n.equals(".code") || n.equals("text");
+			if (entry != null && entry != firstCode && !conventional
+					&& NAMED.keySet().stream().noneMatch(n::startsWith)) {
+				ev.add("Entry point lies in '" + f.entryBlock() + "', not the first code section.");
 				signals += 1;
 			}
 		}
