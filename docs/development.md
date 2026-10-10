@@ -7,7 +7,7 @@ You do not need to know Java or Ghidra internals to build and install the extens
 
 | | |
 |---|---|
-| Ghidra | 12.0.x (built and verified against **12.0.1 PUBLIC**) |
+| Ghidra | 12.0.x (built and verified against **12.1.2 PUBLIC**) |
 | JDK | **21** (Ghidra 12 needs 21+; the bundled Gradle 8.14 cannot run on JDK 25+, so use 21 for the build) |
 | Gradle | 8.5+ — the included wrapper (`./gradlew`) downloads 8.14.3 |
 | Network | Only for fetching Gradle/Maven dependencies at build time (JUnit, `sqlite-jdbc`). The extension itself never uses the network except `localhost`. |
@@ -20,11 +20,11 @@ versioned for the Ghidra it was built against (Ghidra refuses to install extensi
 The build is pinned to JDK 21 via `gradle/gradle-daemon-jvm.properties`: Gradle uses an installed JDK 21 or downloads one (Foojay) automatically, whatever `JAVA_HOME` is. Check with `./gradlew --version` (look at the *JVM* line). If it is not 21, set `JAVA_HOME` to a JDK 21 install. Running on a newer JDK fails immediately with `Unsupported class file major version NN` (70 = Java 26).
 
 ```bash
-export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC     # Windows: set GHIDRA_INSTALL_DIR=C:\ghidra...
+export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.1.2_PUBLIC     # Windows: set GHIDRA_INSTALL_DIR=C:\ghidra...
 ./gradlew buildExtension          # → dist/ghidra_<ver>_<date>_GhidraLocalLLM.zip
 ```
 
-On Windows PowerShell use `$env:GHIDRA_INSTALL_DIR = "C:\path\to\ghidra_12.0.1_PUBLIC"` and `.\gradlew.bat`. To avoid setting it each time, add `GHIDRA_INSTALL_DIR=C:/path/to/ghidra_12.0.1_PUBLIC` to `~/.gradle/gradle.properties`.
+On Windows PowerShell use `$env:GHIDRA_INSTALL_DIR = "C:\path\to\ghidra_12.1.2_PUBLIC"` and `.\gradlew.bat`. To avoid setting it each time, add `GHIDRA_INSTALL_DIR=C:/path/to/ghidra_12.1.2_PUBLIC` to `~/.gradle/gradle.properties`.
 
 ## Test
 

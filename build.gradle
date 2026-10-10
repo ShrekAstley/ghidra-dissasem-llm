@@ -1,7 +1,7 @@
 /* Ghidra Local LLM RE Assistant - extension build.
  *
  * Usage:
- *   export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC
+ *   export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.1.2_PUBLIC
  *   ./gradlew test buildExtension        # (or `gradle ...`)
  *
  * The extension ZIP is written to dist/.
@@ -32,9 +32,9 @@ if (ghidraInstallDir) {
 }
 else {
 	throw new GradleException("""GHIDRA_INSTALL_DIR is not defined. Point it at your Ghidra folder (the one containing ghidraRun and support/), using any ONE of:
-  PowerShell : \$env:GHIDRA_INSTALL_DIR = "C:\\path\\to\\ghidra_12.0.1_PUBLIC"
-  cmd        : set GHIDRA_INSTALL_DIR=C:\\path\\to\\ghidra_12.0.1_PUBLIC     (no quotes)
-  Linux/macOS: export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC
+  PowerShell : \$env:GHIDRA_INSTALL_DIR = "C:\\path\\to\\ghidra_12.1.2_PUBLIC"
+  cmd        : set GHIDRA_INSTALL_DIR=C:\\path\\to\\ghidra_12.1.2_PUBLIC     (no quotes)
+  Linux/macOS: export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.1.2_PUBLIC
   one-off    : gradlew buildExtension -PGHIDRA_INSTALL_DIR=<path>
   permanent  : add GHIDRA_INSTALL_DIR=<path with forward slashes> to <your user home>/.gradle/gradle.properties""")
 }
