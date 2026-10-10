@@ -8,7 +8,6 @@ import java.util.Map;
 
 import ghidra.GhidraApplicationLayout;
 import ghidra.app.plugin.core.analysis.AutoAnalysisManager;
-import ghidra.app.plugin.core.osgi.BundleHost;
 import ghidra.app.script.GhidraScriptUtil;
 import ghidra.app.util.Option;
 import ghidra.app.util.bin.FileByteProvider;
@@ -50,7 +49,7 @@ public final class HeadlessMain {
 
 		Application.initializeApplication(new GhidraApplicationLayout(), new HeadlessGhidraApplicationConfiguration());
 		// Analyzers that run Ghidra scripts (e.g. Windows resource references) NPE without a script bundle host.
-		GhidraScriptUtil.initialize(new BundleHost(), null);
+		GhidraScriptUtil.acquireBundleHostReference();
 		Object owner = new Object();
 		ConsoleTaskMonitor mon = new ConsoleTaskMonitor();
 		Program program = load(bin, owner, mon);
@@ -83,7 +82,7 @@ public final class HeadlessMain {
 			srv.close();
 			proto.close();
 			program.release(owner);
-			GhidraScriptUtil.dispose();
+			GhidraScriptUtil.releaseBundleHostReference();
 		}));
 		Thread.currentThread().join();
 	}
