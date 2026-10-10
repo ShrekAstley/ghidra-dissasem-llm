@@ -18,6 +18,11 @@ public class ToolRegistry {
 		this.granted = granted.isEmpty() ? EnumSet.noneOf(ToolPermission.class) : EnumSet.copyOf(granted);
 	}
 
+	/** Adds a permission class after construction (used by the headless server to enable LOAD_PROGRAM). */
+	public void grant(ToolPermission p) {
+		granted.add(p);
+	}
+
 	public void register(Tool t) {
 		String n = t.definition().name();
 		if (!n.matches("[a-z][a-z0-9_]*")) {
