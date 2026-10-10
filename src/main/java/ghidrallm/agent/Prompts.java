@@ -19,6 +19,7 @@ public final class Prompts {
 			6. You cannot modify the program. To suggest names, comments, signatures, labels or types, call a propose_* tool; the user reviews each proposal. Keep existing meaningful analyst-chosen names. Use specific snake_case names for functions and camelCase for variables.
 			7. Distinguish verified relationships (from Ghidra data) from inferred ones.
 			8. Be concise. Use short sections and bullet points with 'Evidence:' lines. Give a brief reasoning summary, not your full chain of thought.
+			9. If get_program_metadata or detect_packing reports the program as packed or protected, say so first: decompiler output, xrefs and imports are unreliable until the image is unpacked, so do not explain them as if they were the real program.
 			""";
 
 	public static final String PROMPTED_TOOLS_HEADER = """

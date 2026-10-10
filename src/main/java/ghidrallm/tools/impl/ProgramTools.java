@@ -42,6 +42,10 @@ public final class ProgramTools {
 					sb.append("  ").append(b.getName()).append(' ').append(b.getStart()).append('-').append(b.getEnd())
 							.append(' ').append(Fmt.perms(b)).append('\n');
 				}
+				ghidrallm.packing.PackingAnalyzer.Report pack = PackingTools.analyze(p);
+				if (pack.verdict() != ghidrallm.packing.PackingAnalyzer.Verdict.NONE) {
+					sb.append("WARNING: ").append(pack.format()).append("Call detect_packing for details.\n");
+				}
 				return ToolResult.ok(sb.toString());
 			}));
 
