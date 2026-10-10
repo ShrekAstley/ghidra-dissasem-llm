@@ -28,6 +28,7 @@ public final class Tools {
 		ReferenceTools.register(r);
 		DataTools.register(r);
 		ProgramTools.register(r);
+		PackingTools.register(r);
 		TraceTools.register(r);
 		ProposalTools.register(r);
 		KnowledgeTools.register(r);
