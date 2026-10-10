@@ -8,6 +8,7 @@ import java.util.Map;
 
 import ghidra.GhidraApplicationLayout;
 import ghidra.app.plugin.core.analysis.AutoAnalysisManager;
+import ghidra.app.script.GhidraScriptUtil;
 import ghidra.app.util.Option;
 import ghidra.app.util.bin.FileByteProvider;
 import ghidra.app.util.importer.MessageLog;
@@ -47,6 +48,8 @@ public final class HeadlessMain {
 		java.nio.file.Files.createDirectories(data);
 
 		Application.initializeApplication(new GhidraApplicationLayout(), new HeadlessGhidraApplicationConfiguration());
+		// Analyzers that run Ghidra scripts (e.g. Windows resource references) NPE without a script bundle host.
+		GhidraScriptUtil.acquireBundleHostReference();
 		Object owner = new Object();
 		ConsoleTaskMonitor mon = new ConsoleTaskMonitor();
 		Program program = load(bin, owner, mon);
@@ -74,7 +77,13 @@ public final class HeadlessMain {
 		String token = new SecretStore(data).mcpToken();
 		McpHttpServer srv = new McpHttpServer(port, () -> token, proto, log);
 		System.err.println("MCP: http://127.0.0.1:" + srv.port() + "/mcp");
-		System.err.println("TOKEN: " + token);
+		System.err.println("Bearer token is stored in " + data.resolve("secrets.json") + " (key mcp.token); not printed.");
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			srv.close();
+			proto.close();
+			program.release(owner);
+			GhidraScriptUtil.releaseBundleHostReference();
+		}));
 		Thread.currentThread().join();
 	}
 

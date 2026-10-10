@@ -8,7 +8,7 @@ signatures and types — which change your database only after you approve each 
 
 ![Explain in Ghidra](docs/images/ghidra-explain.png)
 
-*Real Ghidra 12.0.1 session: the assistant (right) explains the function under the cursor after calling
+*Real Ghidra 12.1.2 session: the assistant (right) explains the function under the cursor after calling
 `get_callers` and `propose_rename_function`; nothing was changed yet.*
 
 ![Applied rename](docs/images/ghidra-applied-rename.png)
@@ -42,8 +42,8 @@ Requirements: Ghidra 12.0.x, JDK 21, [LM Studio](https://lmstudio.ai).
 
 1. **Get the extension ZIP** — build it ([docs/development.md](docs/development.md)):
    ```bash
-   export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.0.1_PUBLIC
-   ./gradlew test buildExtension        # → dist/ghidra_12.0.1_PUBLIC_<date>_GhidraLocalLLM.zip
+   export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.1.2_PUBLIC
+   ./gradlew test buildExtension        # → dist/ghidra_12.1.2_PUBLIC_<date>_GhidraLocalLLM.zip
    ```
 2. **Install** — Ghidra: *File → Install Extensions → ＋ → pick the ZIP → OK → restart Ghidra*.
 3. **Enable** — open a program in CodeBrowser, *File → Configure → ☑ Local LLM RE Assistant*.
@@ -118,7 +118,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/tools.md](docs/tools.
 
 * Responses are not streamed token-by-token (the full reply appears when ready; Stop cancels the request).
 * Quality depends on the local model; the tool boundary and evidence labels reduce, not eliminate, hallucination.
-* Verified against Ghidra 12.0.1 with a mocked LM Studio / OpenAI / Anthropic server and curl-driven MCP calls; **not yet run against the real Claude or OpenAI APIs, a real LM Studio model, or Claude Desktop / Claude Code as MCP clients** (no keys or clients in the build environment).
+* Verified against Ghidra 12.1.2 with a mocked LM Studio / OpenAI / Anthropic server and curl-driven MCP calls; **not yet run against the real Claude or OpenAI APIs, a real LM Studio model, or Claude Desktop / Claude Code as MCP clients** (no keys or clients in the build environment).
 * Cloud-hosted MCP services cannot reach a loopback server; the MCP server is for clients running on your machine.
 * The assistant does not *consume* external MCP servers (a stdio MCP server is arbitrary process execution, which conflicts with the tool-permission boundary).
 
