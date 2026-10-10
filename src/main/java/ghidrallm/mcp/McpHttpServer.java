@@ -91,6 +91,7 @@ public class McpHttpServer implements AutoCloseable {
 		if (declared != null) {
 			try {
 				if (Long.parseLong(declared.trim()) > MAX_BODY) {
+					drain(ex.getRequestBody());
 					send(ex, 413, "{\"error\":\"request too large\"}");
 					return;
 				}
@@ -102,6 +103,7 @@ public class McpHttpServer implements AutoCloseable {
 		}
 		String body = readLimited(ex.getRequestBody());
 		if (body == null) {
+			drain(ex.getRequestBody());
 			send(ex, 413, "{\"error\":\"request too large\"}");
 			return;
 		}
@@ -141,6 +143,24 @@ public class McpHttpServer implements AutoCloseable {
 			}
 		}
 		return out.toString(StandardCharsets.UTF_8);
+	}
+
+	/**
+	 * Discards (a bounded amount of) the unread request body before an early error reply. Closing a connection with unread
+	 * request data makes the OS reset it, and the client then never sees the status line (seen on Windows).
+	 */
+	private static void drain(InputStream in) {
+		byte[] buf = new byte[8192];
+		long left = 16L * MAX_BODY;
+		try {
+			int n;
+			while (left > 0 && (n = in.read(buf)) > 0) {
+				left -= n;
+			}
+		}
+		catch (IOException e) {
+			// client went away; the reply below will fail the same way
+		}
 	}
 
 	private static void send(HttpExchange ex, int status, String json) throws IOException {
