@@ -59,7 +59,11 @@ public final class TestPrograms {
 		initialized = true;
 	}
 
-	/** Turns a surprise System.exit() inside Ghidra into a visible exception with a stack trace. */
+	/**
+	 * Prints a stack trace for any System.exit()/Runtime.halt() so a surprise exit inside Ghidra is visible. It must
+	 * not throw: Gradle's test worker ends with System.exit(0), and vetoing that turns every passing test class
+	 * into a failed or hung worker process.
+	 */
 	@SuppressWarnings({ "removal", "deprecation" })
 	private static void trapExit() {
 		try {
@@ -76,9 +80,12 @@ public final class TestPrograms {
 
 				@Override
 				public void checkExit(int status) {
-					IllegalStateException e = new IllegalStateException("System.exit(" + status + ") was called");
-					e.printStackTrace();
-					throw e;
+					Throwable t = new Throwable("System.exit(" + status + ") called from:");
+					boolean gradleNormalExit = status == 0 && java.util.Arrays.stream(t.getStackTrace())
+						.anyMatch(f -> f.getClassName().startsWith("org.gradle.process.internal.worker."));
+					if (!gradleNormalExit) {
+						t.printStackTrace();
+					}
 				}
 			});
 		}
