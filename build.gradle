@@ -57,7 +57,10 @@ test {
 	useJUnitPlatform()
 	// Integration tests boot a headless Ghidra application from this directory.
 	systemProperty 'ghidra.install.dir', ghidraInstallDir
+	// Install Ghidra's serial filter factory at JVM start: Ghidra's init cannot replace the factory once Gradle's
+	// test worker has already used the default one (JDK 21: "Cannot replace filter factory"), and then exits.
 	jvmArgs '-Djava.awt.headless=true', '-Xmx2g', '-Djava.security.manager=allow',
+		'-Djdk.serialFilterFactory=ghidra.framework.remote.GhidraSerialFilterFactory',
 		"-XX:ErrorFile=${projectDir}/build/hs_err_pid%p.log"
 	// Fork a fresh JVM per test class so a native/JVM crash in one class cannot hide the others.
 	forkEvery = 1
