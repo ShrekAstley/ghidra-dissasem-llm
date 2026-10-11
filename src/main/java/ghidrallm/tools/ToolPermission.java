@@ -7,5 +7,7 @@ public enum ToolPermission {
 	/** Queue a change proposal (does NOT modify the program; user approval is required). */
 	PROPOSE_CHANGE,
 	/** Read/write the local analysis-knowledge database (not the Ghidra program). */
-	LOCAL_KNOWLEDGE
+	LOCAL_KNOWLEDGE,
+	/** Open another program (for example a memory dump) from an allowed folder. Headless server only; never executes it. */
+	LOAD_PROGRAM
 }
